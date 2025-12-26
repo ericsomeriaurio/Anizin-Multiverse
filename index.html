@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anizin-Multiverse 3D</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; color: #00ffcc; font-family: 'Courier New', monospace; overflow: hidden; }
+        #ui { position: absolute; z-index: 10; width: 100%; text-align: center; top: 20%; pointer-events: none; }
+        .box { pointer-events: all; background: rgba(0,0,0,0.9); border: 2px solid #00ffcc; padding: 30px; display: inline-block; border-radius: 20px; box-shadow: 0 0 30px #00ffcc55; }
+        input, select { background: #111; border: 1px solid #00ffcc; color: white; padding: 12px; margin: 10px; width: 220px; border-radius: 5px; }
+        button { background: #00ffcc; color: black; border: none; padding: 12px 30px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; border-radius: 5px; }
+        button:hover { box-shadow: 0 0 20px #00ffcc; transform: scale(1.05); }
+        #game-canvas { width: 100vw; height: 100vh; display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div id="login-screen" class="box">
+            <h1 style="letter-spacing: 5px; margin-bottom: 5px;">ANIZIN-MULTIVERSE</h1>
+            <p style="color: #666; font-size: 0.8em;">MULTIVERSO ANIME ONLINE</p>
+            <input type="text" id="username" placeholder="Teu nome de Jogador">
+            <br>
+            <select id="hero-select">
+                <option value="Goku">Son Goku (DBZ)</option>
+                <option value="Naruto">Naruto Uzumaki</option>
+                <option value="Luffy">Monkey D. Luffy</option>
+            </select>
+            <br><br>
+            <button onclick="entrar()">ENTRAR NA ARENA 3D</button>
+        </div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <script>
+        // LIGAÇÃO DIRETA AO TEU ANIZIN-DB
+        const SUPABASE_URL = 'https://ykpoejwebkrcckcipexh.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_PaYvM18dD2ZxXlp1aQw0FQ_ZwqlHeOD';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function entrar() {
+            const nome = document.getElementById('username').value;
+            const hero = document.getElementById('hero-select').value;
+            if(!nome) return alert("Escreve o teu nome, Herói!");
+
+            // Tenta salvar no Supabase
+            const { error } = await _supabase.from('jogadores').insert([{ nome, personagem: hero }]);
+            
+            if(!error) {
+                document.getElementById('login-screen').style.display = 'none';
+                iniciar3D();
+            } else {
+                console.error(error);
+                alert("Erro de conexão! Verificaste se criaste a tabela 'jogadores' no Supabase?");
+            }
+        }
+
+        function iniciar3D() {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Luz Neon
+            const light = new THREE.PointLight(0x00ffcc, 1, 100);
+            light.position.set(5, 5, 5);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+            // Representação do Herói: Cubo de Energia Wireframe
+            const geometry = new THREE.BoxGeometry(2, 2, 2);
+            const material = new THREE.MeshPhongMaterial({ color: 0x00ffcc, wireframe: true });
+            const cube = new THREE.Mesh(geometry, material);
+            scene.add(cube);
+
+            camera.position.z = 6;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                cube.rotation.x += 0.01;
+                cube.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            }
+            animate();
+            
+            // Ajustar ecrã se rodar o telemóvel
+            window.addEventListener('resize', () => {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+            });
+        }
+    </script>
+</body>
+</html>
