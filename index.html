@@ -2,38 +2,192 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Anizin-Multiverse 3D</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root { --neon: #00ffcc; --bg: rgba(0,0,0,0.9); }
-        body { margin: 0; background: #000; color: var(--neon); font-family: 'Courier New', monospace; overflow: hidden; }
+        :root { --neon: #00ffcc; --bg: rgba(5,5,5,0.9); }
+        body { margin: 0; background: #000; color: var(--neon); font-family: sans-serif; overflow: hidden; touch-action: none; }
         
-        /* LOGIN AVANÇADO */
-        #ui { position: absolute; z-index: 1000; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #001a1a 0%, #000 100%); }
-        .box { background: var(--bg); border: 2px solid var(--neon); padding: 30px; border-radius: 20px; box-shadow: 0 0 30px var(--neon); text-align: center; max-width: 320px; }
+        /* TELAS DE LOGIN/CADASTRO */
+        .overlay { position: absolute; z-index: 2000; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; }
+        .box { background: var(--bg); border: 2px solid var(--neon); padding: 25px; border-radius: 15px; width: 300px; text-align: center; }
         input, select { background: #111; border: 1px solid var(--neon); color: white; padding: 12px; margin: 8px 0; width: 100%; border-radius: 5px; box-sizing: border-box; }
-        button { background: var(--neon); color: black; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; text-transform: uppercase; border-radius: 5px; margin-top: 10px; }
+        button { background: var(--neon); color: black; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 5px; }
+        .secondary { background: transparent; color: var(--neon); border: 1px solid var(--neon); margin-top: 10px; }
 
-        /* HUD & STATUS */
-        #hud { position: absolute; top: 20px; right: 20px; background: var(--bg); border: 1px solid var(--neon); padding: 10px; border-radius: 10px; display: none; z-index: 100; }
-
-        /* CHAT RETRÁTIL (ESTILO MINIMIZÁVEL) */
-        #chat-wrapper { position: absolute; bottom: 20px; left: 20px; z-index: 500; display: none; transition: 0.3s; }
-        #chat-container { width: 300px; height: 40px; background: var(--bg); border: 1px solid var(--neon); border-radius: 10px; overflow: hidden; transition: 0.3s; }
+        /* HUD E CHAT */
+        #hud-top { position: absolute; top: 15px; left: 15px; right: 15px; display: none; justify-content: space-between; z-index: 100; pointer-events: none; }
+        .hud-card { pointer-events: all; background: var(--bg); border: 1px solid var(--neon); padding: 8px 12px; border-radius: 8px; font-size: 0.8em; }
+        
+        #chat-wrapper { position: absolute; bottom: 20px; right: 20px; z-index: 500; display: none; }
+        #chat-container { width: 260px; height: 40px; background: var(--bg); border: 1px solid var(--neon); border-radius: 10px; transition: 0.4s; overflow: hidden; }
         #chat-container.expanded { height: 250px; }
-        
-        #chat-header { padding: 10px; background: rgba(0,255,204,0.1); cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; font-size: 0.8em; }
-        #chat-content { display: none; height: 160px; padding: 10px; flex-direction: column; }
-        #chat-container.expanded #chat-content { display: flex; }
-        #messages { flex-grow: 1; overflow-y: auto; font-size: 0.8em; margin-bottom: 5px; }
-        
-        /* ABAS DE PRIVACIDADE */
-        .chat-tabs { display: flex; gap: 5px; margin-bottom: 5px; font-size: 0.7em; }
-        .tab { padding: 3px 6px; border: 1px solid var(--neon); border-radius: 3px; cursor: pointer; }
-        .tab.active { background: var(--neon); color: black; }
+        #messages { height: 160px; overflow-y: auto; padding: 8px; font-size: 0.75em; border-bottom: 1px solid #222; }
+        #chat-input { width: 100%; background: none; border: none; color: white; padding: 8px; outline: none; }
 
+        #game-canvas { width: 100vw; height: 100vh; display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="screen-auth" class="overlay">
+        <div class="box">
+            <h2 id="auth-title">ANIZIN-MULTIVERSE</h2>
+            <div id="reg-fields" style="display:none;">
+                <input type="text" id="reg-name" placeholder="Nome do Personagem">
+                <select id="reg-hero">
+                    <option value="Goku">Goku</option>
+                    <option value="Naruto">Naruto</option>
+                    <option value="Luffy">Luffy</option>
+                </select>
+            </div>
+            <input type="email" id="auth-email" placeholder="Email">
+            <input type="password" id="auth-pass" placeholder="Senha">
+            <button onclick="executarAuth()" id="btn-auth">ENTRAR</button>
+            <button class="secondary" onclick="alternarTela()" id="btn-switch">CRIAR CONTA</button>
+        </div>
+    </div>
+
+    <div id="hud-top">
+        <div class="hud-card">👤 <span id="h-nome">---</span></div>
+        <div class="hud-card">⭐ Nível: <span id="h-lv">1</span></div>
+    </div>
+
+    <div id="chat-wrapper">
+        <div id="chat-container">
+            <div style="padding:10px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between;" onclick="document.getElementById('chat-container').classList.toggle('expanded')">
+                <span>💬 CHAT</span> <span>▲</span>
+            </div>
+            <div id="messages"></div>
+            <input type="text" id="chat-input" placeholder="Escreva...">
+        </div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <script>
+        // CONFIGURAÇÃO SUPABASE
+        const _supabase = supabase.createClient('https://ykpoejwebkrcckcipexh.supabase.co', 'sb_publishable_PaYvM18dD2ZxXlp1aQw0FQ_ZwqlHeOD');
+
+        let isReg = false;
+        let meuPerfil = null;
+        let canal, cena, camera, renderizador, playerMesh;
+        let moveDir = { x: 0, z: 0 };
+
+        function alternarTela() {
+            isReg = !isReg;
+            document.getElementById('auth-title').innerText = isReg ? "NOVO RECRUTA" : "ANIZIN-MULTIVERSE";
+            document.getElementById('reg-fields').style.display = isReg ? "block" : "none";
+            document.getElementById('btn-auth').innerText = isReg ? "FINALIZAR" : "ENTRAR";
+            document.getElementById('btn-switch').innerText = isReg ? "VOLTAR" : "CRIAR CONTA";
+        }
+
+        async function executarAuth() {
+            const email = document.getElementById('auth-email').value;
+            const pass = document.getElementById('auth-pass').value;
+
+            if(isReg) {
+                const { error } = await _supabase.auth.signUp({ email, password: pass });
+                if(error) return alert(error.message);
+                const nome = document.getElementById('reg-name').value;
+                const hero = document.getElementById('reg-hero').value;
+                await _supabase.from('jogadores').insert([{ email, nome, personagem: hero }]);
+                alert("Conta criada!"); alternarTela();
+            } else {
+                const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+                if(error) return alert("Erro no Login!");
+                const { data: p } = await _supabase.from('jogadores').select('*').eq('email', email).single();
+                meuPerfil = p;
+                iniciarJogo();
+            }
+        }
+
+        function iniciarJogo() {
+            document.getElementById('screen-auth').style.display = 'none';
+            document.getElementById('hud-top').style.display = 'flex';
+            document.getElementById('chat-wrapper').style.display = 'block';
+            document.getElementById('h-nome').innerText = meuPerfil.nome;
+            iniciar3D();
+            conectarChat();
+        }
+
+        // --- MOTOR 3D COM MOVIMENTO ---
+        function iniciar3D() {
+            cena = new THREE.Scene();
+            cena.background = new THREE.Color(0x020205);
+            cena.fog = new THREE.Fog(0x020205, 15, 50);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderizador = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true });
+            renderizador.setSize(window.innerWidth, window.innerHeight);
+
+            // Chão Neon
+            const grid = new THREE.GridHelper(200, 100, 0x00ffcc, 0x111111);
+            grid.position.y = -1;
+            cena.add(grid);
+
+            // Luzes
+            cena.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const pLight = new THREE.PointLight(0x00ffcc, 1, 50);
+            pLight.position.set(0, 5, 0);
+            cena.add(pLight);
+
+            // Player Provisório
+            const geo = new THREE.SphereGeometry(0.8, 16, 16);
+            const mat = new THREE.MeshPhongMaterial({ color: 0x00ffcc, emissive: 0x003333 });
+            playerMesh = new THREE.Mesh(geo, mat);
+            cena.add(playerMesh);
+
+            camera.position.set(0, 5, 10);
+            camera.lookAt(playerMesh.position);
+
+            // CONTROLES DE TOQUE (Joystick Invisível)
+            window.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                // Se tocar no lado esquerdo, move
+                moveDir.x = (touch.clientX / window.innerWidth - 0.5) * 2;
+                moveDir.z = (touch.clientY / window.innerHeight - 0.5) * 2;
+            });
+            window.addEventListener('touchend', () => { moveDir = { x: 0, z: 0 }; });
+
+            function animar() {
+                requestAnimationFrame(animar);
+                
+                if(playerMesh) {
+                    playerMesh.position.x += moveDir.x * 0.15;
+                    playerMesh.position.z += moveDir.z * 0.15;
+                    
+                    // Câmara segue o personagem suavemente
+                    camera.position.x += (playerMesh.position.x - camera.position.x) * 0.1;
+                    camera.position.z += (playerMesh.position.z + 8 - camera.position.z) * 0.1;
+                    camera.lookAt(playerMesh.position);
+                }
+                
+                renderizador.render(cena, camera);
+            }
+            animar();
+        }
+
+        function conectarChat() {
+            canal = _supabase.channel('multiverso').subscribe();
+            canal.on('broadcast', { event: 'msg' }, p => {
+                const m = document.getElementById('messages');
+                m.innerHTML += `<div><b>${p.payload.u}:</b> ${p.payload.t}</div>`;
+                m.scrollTop = m.scrollHeight;
+            });
+
+            document.getElementById('chat-input').onkeypress = (e) => {
+                if(e.key === 'Enter' && e.target.value !== '') {
+                    canal.send({ type: 'broadcast', event: 'msg', payload: { u: meuPerfil.nome, t: e.target.value } });
+                    e.target.value = '';
+                }
+            };
+        }
+    </script>
+</body>
+</html>
         #game-canvas { width: 100vw; height: 100vh; display: block; }
     </style>
 </head>
