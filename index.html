@@ -8,11 +8,31 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; background: #000; color: #00ffcc; font-family: 'Courier New', monospace; overflow: hidden; }
-        #ui { position: absolute; z-index: 10; width: 100%; text-align: center; top: 20%; pointer-events: none; }
+        
+        /* Telas de UI */
+        #ui { position: absolute; z-index: 100; width: 100%; text-align: center; top: 20%; pointer-events: none; }
         .box { pointer-events: all; background: rgba(0,0,0,0.9); border: 2px solid #00ffcc; padding: 30px; display: inline-block; border-radius: 20px; box-shadow: 0 0 30px #00ffcc55; }
-        input, select { background: #111; border: 1px solid #00ffcc; color: white; padding: 12px; margin: 10px; width: 220px; border-radius: 5px; }
+        
+        /* Inputs e Botões */
+        input, select { background: #111; border: 1px solid #00ffcc; color: white; padding: 12px; margin: 10px; width: 220px; border-radius: 5px; outline: none; }
         button { background: #00ffcc; color: black; border: none; padding: 12px 30px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; border-radius: 5px; }
         button:hover { box-shadow: 0 0 20px #00ffcc; transform: scale(1.05); }
+
+        /* HUD do Jogo (Aparece após login) */
+        #player-status {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(0,0,0,0.8); border: 1px solid #00ffcc;
+            padding: 15px; color: #fff; z-index: 50; display: none; border-radius: 10px;
+        }
+        #chat-box { 
+            position: absolute; bottom: 20px; left: 20px; 
+            width: 280px; height: 180px; background: rgba(0,0,0,0.8); 
+            border: 1px solid #00ffcc; color: #00ffcc; 
+            padding: 10px; font-size: 0.85em; overflow: hidden; 
+            display: none; z-index: 50; border-radius: 10px;
+        }
+        #messages { height: 130px; overflow-y: auto; margin-bottom: 5px; border-bottom: 1px solid #00ffcc33; }
+        
         #game-canvas { width: 100vw; height: 100vh; display: block; }
     </style>
 </head>
@@ -34,66 +54,111 @@
         </div>
     </div>
 
+    <div id="player-status">
+        👤 <span id="st-nome" style="color:#00ffcc; font-weight:bold;">---</span> <br>
+        ⭐ Nível: <span id="st-nv">1</span> | 🧪 XP: <span id="st-xp">0</span>
+    </div>
+
+    <div id="chat-box">
+        <div id="messages"><div>> Sistema: Sinal estável.</div></div>
+        <input type="text" id="chat-input" placeholder="Escreve aqui..." 
+               style="width: 90%; background: none; border: none; border-bottom: 1px solid #00ffcc; color: white; margin:0; padding:5px;">
+    </div>
+
     <canvas id="game-canvas"></canvas>
 
     <script>
-        // LIGAÇÃO DIRETA AO TEU ANIZIN-DB
+        // CONFIGURAÇÃO SUPABASE
         const SUPABASE_URL = 'https://ykpoejwebkrcckcipexh.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_PaYvM18dD2ZxXlp1aQw0FQ_ZwqlHeOD';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let scene, camera, renderer, cube, pointLight;
 
         async function entrar() {
             const nome = document.getElementById('username').value;
             const hero = document.getElementById('hero-select').value;
             if(!nome) return alert("Escreve o teu nome, Herói!");
 
-            // Tenta salvar no Supabase
+            // Tenta salvar no Banco de Dados
             const { error } = await _supabase.from('jogadores').insert([{ nome, personagem: hero }]);
             
             if(!error) {
                 document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('player-status').style.display = 'block';
+                document.getElementById('chat-box').style.display = 'block';
+                document.getElementById('st-nome').innerText = nome;
                 iniciar3D();
+                logMsg(`Tu entraste como ${hero}!`);
             } else {
-                console.error(error);
-                alert("Erro de conexão! Verificaste se criaste a tabela 'jogadores' no Supabase?");
+                alert("Erro ao conectar ao Supabase! Verificaste a tabela 'jogadores'?");
             }
         }
 
         function iniciar3D() {
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true });
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
 
-            // Luz Neon
-            const light = new THREE.PointLight(0x00ffcc, 1, 100);
-            light.position.set(5, 5, 5);
-            scene.add(light);
+            // Luz do Multiverso
+            pointLight = new THREE.PointLight(0x00ffcc, 1, 100);
+            pointLight.position.set(5, 5, 5);
+            scene.add(pointLight);
             scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 
-            // Representação do Herói: Cubo de Energia Wireframe
-            const geometry = new THREE.BoxGeometry(2, 2, 2);
+            // O "Personagem" Inicial
+            const geometry = new THREE.IcosahedronGeometry(2, 1);
             const material = new THREE.MeshPhongMaterial({ color: 0x00ffcc, wireframe: true });
-            const cube = new THREE.Mesh(geometry, material);
+            cube = new THREE.Mesh(geometry, material);
             scene.add(cube);
 
             camera.position.z = 6;
 
-            function animate() {
-                requestAnimationFrame(animate);
-                cube.rotation.x += 0.01;
-                cube.rotation.y += 0.01;
-                renderer.render(scene, camera);
-            }
+            // Ativar Chat
+            document.getElementById('chat-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter' && this.value !== '') {
+                    logMsg(`${document.getElementById('username').value}: ${this.value}`);
+                    this.value = '';
+                }
+            });
+
             animate();
+        }
+
+        function logMsg(txt) {
+            const m = document.getElementById('messages');
+            m.innerHTML += `<div style="margin-bottom:2px;">> ${txt}</div>`;
+            m.scrollTop = m.scrollHeight;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
             
-            // Ajustar ecrã se rodar o telemóvel
-            window.addEventListener('resize', () => {
+            // Rotação Automática
+            cube.rotation.x += 0.005;
+            cube.rotation.y += 0.01;
+
+            // SISTEMA INTELIGENTE DE CLIMA
+            const hora = new Date().getHours();
+            if (hora >= 18 || hora <= 6) {
+                pointLight.color.setHex(0xff0055); // Noite: Tom avermelhado/neon
+                scene.background = new THREE.Color(0x020005);
+            } else {
+                pointLight.color.setHex(0x00ffcc); // Dia: Tom ciano
+                scene.background = new THREE.Color(0x000505);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            if(renderer) {
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
-            });
-        }
+            }
+        });
     </script>
 </body>
 </html>
